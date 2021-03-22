@@ -1,3 +1,6 @@
-status = ['tests']
+status = [
+    'Tests on ubuntu-latest',
+    'Tests on macos-latest'
+]
 # 3 hours timeout
 timeout-sec = 10800
