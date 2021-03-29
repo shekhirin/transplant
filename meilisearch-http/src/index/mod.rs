@@ -51,11 +51,17 @@ impl Index {
             .map(|c| c.to_string())
             .collect();
 
+        let distinct_attribute = self
+            .distinct_attribute(&txn)?
+            .map(String::from);
+
+
         Ok(Settings {
             displayed_attributes: Some(Some(displayed_attributes)),
             searchable_attributes: Some(Some(searchable_attributes)),
             attributes_for_faceting: Some(Some(faceted_attributes)),
             ranking_rules: Some(Some(criteria)),
+            distinct_attribute: Some(distinct_attribute),
         })
     }
 

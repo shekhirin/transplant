@@ -43,6 +43,12 @@ pub struct Settings {
         skip_serializing_if = "Option::is_none"
     )]
     pub ranking_rules: Option<Option<Vec<String>>>,
+    #[serde(
+        default,
+        deserialize_with = "deserialize_some",
+        skip_serializing_if = "Option::is_none"
+    )]
+    pub distinct_attribute: Option<Option<String>>,
 }
 
 impl Settings {
@@ -52,6 +58,7 @@ impl Settings {
             searchable_attributes: Some(None),
             attributes_for_faceting: Some(None),
             ranking_rules: Some(None),
+            distinct_attribute: Some(None),
         }
     }
 }
@@ -137,7 +144,6 @@ impl Index {
         let mut wtxn = self.write_txn()?;
         let mut builder = update_builder.settings(&mut wtxn, self);
 
-        // We transpose the settings JSON struct into a real setting update.
         if let Some(ref names) = settings.searchable_attributes {
             match names {
                 Some(names) => builder.set_searchable_fields(names.clone()),
@@ -145,7 +151,6 @@ impl Index {
             }
         }
 
-        // We transpose the settings JSON struct into a real setting update.
         if let Some(ref names) = settings.displayed_attributes {
             match names {
                 Some(names) => builder.set_displayed_fields(names.clone()),
@@ -153,17 +158,22 @@ impl Index {
             }
         }
 
-        // We transpose the settings JSON struct into a real setting update.
         if let Some(ref facet_types) = settings.attributes_for_faceting {
             let facet_types = facet_types.clone().unwrap_or_else(HashMap::new);
             builder.set_faceted_fields(facet_types);
         }
 
-        // We transpose the settings JSON struct into a real setting update.
         if let Some(ref criteria) = settings.ranking_rules {
             match criteria {
                 Some(criteria) => builder.set_criteria(criteria.clone()),
                 None => builder.reset_criteria(),
+            }
+        }
+
+        if let Some(ref distinct_attribute) = settings.distinct_attribute {
+            match distinct_attribute {
+                Some(attr) => builder.set_distinct_attribute(attr.clone()),
+                None => builder.reset_distinct_attribute(),
             }
         }
 
