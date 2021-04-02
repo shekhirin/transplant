@@ -20,59 +20,27 @@ impl UuidResolverHandleImpl {
     }
 }
 
-#[async_trait::async_trait]
-impl UuidResolverHandle for UuidResolverHandleImpl {
-    async fn get(&self, name: String) -> Result<Uuid> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::Get { uid: name, ret };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
-
-    async fn create(&self, name: String) -> anyhow::Result<Uuid> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::Create { uid: name, ret };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
-
-    async fn delete(&self, name: String) -> anyhow::Result<Uuid> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::Delete { uid: name, ret };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
-
-    async fn list(&self) -> anyhow::Result<Vec<(String, Uuid)>> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::List { ret };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
-
-    async fn insert(&self, name: String, uuid: Uuid) -> anyhow::Result<()> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::Insert { ret, name, uuid };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
-
-    async fn snapshot(&self, path: PathBuf) -> Result<Vec<Uuid>> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UuidResolveMsg::SnapshotRequest { path, ret };
-        let _ = self.sender.send(msg).await;
-        Ok(receiver
-            .await
-            .expect("Uuid resolver actor has been killed")?)
-    }
+macro_rules! handler {
+    ($({$fn_name:ident, $message:ident, [$($arg:ident: $arg_type:ty),*], $return:ty}),*) => {
+        #[async_trait::async_trait]
+        impl UuidResolverHandle for UuidResolverHandleImpl {
+            $(
+                async fn $fn_name(&self, $($arg: $arg_type, )*) -> $return {
+                    let (ret, receiver) = oneshot::channel();
+                    let msg = UuidResolveMsg::$message { $($arg,)* ret };
+                    let _ = self.sender.send(msg).await;
+                    Ok(receiver.await.expect("UuidResolverActor has been killed")?)
+                }
+            )*
+        }
+    };
 }
+
+handler!(
+    {get, Get, [uid: String], Result<Uuid>},
+    {create, Create, [uid: String], anyhow::Result<Uuid>},
+    {delete, Delete, [uid: String], anyhow::Result<Uuid>},
+    {list, List, [], anyhow::Result<Vec<(String, Uuid)>>},
+    {insert, Insert, [name: String, uuid: Uuid], anyhow::Result<()>},
+    {snapshot, SnapshotRequest, [path: PathBuf], Result<Vec<Uuid>>}
+);

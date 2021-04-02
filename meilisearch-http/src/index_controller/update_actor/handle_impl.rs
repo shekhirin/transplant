@@ -3,11 +3,12 @@ use std::path::{Path, PathBuf};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
+use crate::index_controller::IndexActorHandle;
+
 use super::{
     MapUpdateStoreStore, PayloadData, Result, UpdateActor, UpdateActorHandle, UpdateMeta,
     UpdateMsg, UpdateStatus,
 };
-use crate::index_controller::IndexActorHandle;
 
 #[derive(Clone)]
 pub struct UpdateActorHandleImpl<D> {
@@ -36,61 +37,32 @@ where
         Ok(Self { sender })
     }
 }
-#[async_trait::async_trait]
-impl<D> UpdateActorHandle for UpdateActorHandleImpl<D>
-where
-    D: AsRef<[u8]> + Sized + 'static + Sync + Send,
-{
-    type Data = D;
 
-    async fn update(
-        &self,
-        meta: UpdateMeta,
-        data: mpsc::Receiver<PayloadData<Self::Data>>,
-        uuid: Uuid,
-    ) -> Result<UpdateStatus> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::Update {
-            uuid,
-            data,
-            meta,
-            ret,
-        };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
-    async fn get_all_updates_status(&self, uuid: Uuid) -> Result<Vec<UpdateStatus>> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::ListUpdates { uuid, ret };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
-
-    async fn update_status(&self, uuid: Uuid, id: u64) -> Result<UpdateStatus> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::GetUpdate { uuid, id, ret };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
-
-    async fn delete(&self, uuid: Uuid) -> Result<()> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::Delete { uuid, ret };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
-
-    async fn create(&self, uuid: Uuid) -> Result<()> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::Create { uuid, ret };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
-
-    async fn snapshot(&self, uuid: Uuid, path: PathBuf) -> Result<()> {
-        let (ret, receiver) = oneshot::channel();
-        let msg = UpdateMsg::Snapshot { uuid, path, ret };
-        let _ = self.sender.send(msg).await;
-        receiver.await.expect("update actor killed.")
-    }
+macro_rules! handler {
+    ($({$fn_name:ident, $message:ident, [$($arg:ident: $arg_type:ty),*], $return:ty}),*) => {
+        #[async_trait::async_trait]
+        impl<D> UpdateActorHandle for UpdateActorHandleImpl<D>
+        where
+            D: AsRef<[u8]> + Sized + 'static + Sync + Send,
+        {
+            type Data = D;
+            $(
+                async fn $fn_name(&self, $($arg: $arg_type, )*) -> $return {
+                    let (ret, receiver) = oneshot::channel();
+                    let msg = UpdateMsg::$message { $($arg,)* ret };
+                    let _ = self.sender.send(msg).await;
+                    Ok(receiver.await.expect("UpdateActor has been killed")?)
+                }
+            )*
+        }
+    };
 }
+
+handler!(
+    {update, Update, [meta: UpdateMeta, data: mpsc::Receiver<PayloadData<Self::Data>>, uuid: Uuid], Result<UpdateStatus>},
+    {get_all_updates_status, ListUpdates, [uuid: Uuid], Result<Vec<UpdateStatus>>},
+    {update_status, GetUpdate, [uuid: Uuid, id: u64], Result<UpdateStatus>},
+    {delete, Delete, [uuid: Uuid], Result<()>},
+    {create, Create, [uuid: Uuid], Result<()>},
+    {snapshot, Snapshot, [uuid: Uuid, path: PathBuf], Result<()>}
+);
