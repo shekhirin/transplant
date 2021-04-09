@@ -27,11 +27,11 @@ RUN     find . -path "*/src/main.rs" -delete
 
 ARG     COMMIT_SHA
 ARG     COMMIT_DATE
-ENV     COMMIT_SHA=${COMMIT_SHA}
-ENV     COMMIT_DATE=${COMMIT_DATE}
+
+RUN     echo ${COMMIT_SHA} ${COMMIT_DATE}
 
 COPY    . .
-RUN     $HOME/.cargo/bin/cargo build --release
+RUN     COMMIT_DATE=${COMMIT_DATE} COMMIT_SHA=${COMMIT_SHA} $HOME/.cargo/bin/cargo build --release
 
 # Run
 FROM    alpine:3.10
