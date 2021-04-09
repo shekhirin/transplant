@@ -19,7 +19,7 @@ jobs:
         env:
           COMMIT_SHA: ${{ github.sha }}
         with:
-          name: getmeili/meilisearch
+          name: shekhirin/meilisearch
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           tag_names: true
