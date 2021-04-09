@@ -50,7 +50,7 @@ async fn get_stats(_data: web::Data<Data>) -> Result<HttpResponse, ResponseError
 #[serde(rename_all = "camelCase")]
 struct VersionResponse {
     commit_sha: String,
-    build_date: String,
+    commit_date: String,
     pkg_version: String,
 }
 
@@ -67,7 +67,7 @@ async fn get_version() -> HttpResponse {
 
     HttpResponse::Ok().json(VersionResponse {
         commit_sha: commit_sha.to_string(),
-        build_date: commit_date.to_string(),
+        commit_date: commit_date.to_string(),
         pkg_version: env!("CARGO_PKG_VERSION").to_string(),
     })
 }
